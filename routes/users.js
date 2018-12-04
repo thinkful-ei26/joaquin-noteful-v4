@@ -4,65 +4,97 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const User = require('../models/user');
-const Note = require('../models/note');
 
 const router = express.Router();
 
-/* ========== GET/READ ALL ITEMS ========== */
-// router.get('/', (req, res, next) => {
+// POST endpoint to create a user//
+// The endpoint creates a new user in the database and responds with a 201 status, a location header and a JSON representation of the user without the password.
+router.post('/', (req,res,next) => {
+  const requiredFields = ['username', 'password'];
+  const missingField = requiredFields.find(field => !(field in req.body));
 
-//   User.find()
-//     .sort('name')
-//     .then(results => {
-//       res.json(results);
-//     })
-//     .catch(err => {
-//       next(err);
-//     });
-// });
+  if (missingField) {
+    const err = new Error(`Missing '${missingField}' in request body`);
+    err.status = 422;
+    return next(err);
+  }
 
-/* ========== GET/READ A SINGLE ITEM ========== */
-// router.get('/:id', (req, res, next) => {
-//   const { id } = req.params;
+  const stringFields = ['username', 'password', 'firstName', 'lastName'];
+  const nonStringField = stringFields.find(
+    field => field in req.body && typeof req.body[field] !== 'string'
+  );
 
-//   /***** Never trust users - validate input *****/
-//   if (!mongoose.Types.ObjectId.isValid(id)) {
-//     const err = new Error('The `id` is not valid');
-//     err.status = 400;
-//     return next(err);
-//   }
+  if (nonStringField) {
+    const err = new Error('Incorrect field type: expected string');
+    err.status = 422;
+    return next(err);
+  }
 
-//   User.findById(id)
-//     .then(result => {
-//       if (result) {
-//         res.json(result);
-//       } else {
-//         next();
-//       }
-//     })
-//     .catch(err => {
-//       next(err);
-//     });
-// });
+  // If the username and password aren't trimmed we give an error.  Users might expect that these will work without trimming (i.e. they want the password "foobar ", including the space at the end).  We need to reject such values explicitly so the users know what's happening, rather than silently trimming them and expecting the user to understand.
+  // We'll silently trim the other fields, because they aren't credentials used to log in, so it's less of a problem.
+  const explicityTrimmedFields = ['username', 'password'];
+  const nonTrimmedField = explicityTrimmedFields.find(
+    field => req.body[field].trim() !== req.body[field]
+  );
 
-/* ========== POST/CREATE AN ITEM ========== */
-router
-  .post('/', (req, res, next) => {
-    const { username, password, fullname = '' } = req.body;
-    const newUser = { username, password, fullname };
-    User.create(newUser).then(() => {
-      return res.status(201).json({
-        code: 201,
+  if (nonTrimmedField) {
+    const err = new Error('Cannot start or end with whitespace');
+    err.status = 422;
+    return next(err);
+  }
+
+  const sizedFields = {
+    username: {
+      min: 1
+    },
+    password: {
+      min: 8,
+      // bcrypt truncates after 72 characters, so let's not give the illusion of security by storing extra (unused) info
+      max: 72
+    }
+  };
+  const tooSmallField = Object.keys(sizedFields).find(
+    field =>
+      'min' in sizedFields[field] &&
+            req.body[field].trim().length < sizedFields[field].min
+  );
+  const tooLargeField = Object.keys(sizedFields).find(
+    field =>
+      'max' in sizedFields[field] &&
+            req.body[field].trim().length > sizedFields[field].max
+  );
+
+  if (tooSmallField || tooLargeField) {
+    const message = tooSmallField
+      ? `Must be at least ${sizedFields[tooSmallField]
+        .min} characters long`
+      : `Must be at most ${sizedFields[tooLargeField]
+        .max} characters long`;
+
+    const err = new Error(message);
+    err.status = 422;
+    return next(err);
+  }
+  const {fullname = '', username, password} = req.body;
+  return User.hashPassword(password)
+    .then(digest => {
+      const newUser = {
         username,
-        password,
+        password: digest,
         fullname
-      });
+      };
+      return User.create(newUser);
+    })
+    .then(result => {
+      return res.status(201).location(`http://${req.headers.host}/api/folders//${result.id}`).json(result);
+    })
+    .catch(err => {
+      if (err.code === 11000) {
+        err = new Error('The username already exists');
+        err.status = 400;
+      }
+      next(err);
     });
-  })
-  .catch(() => {
-    return new Error();
-  });
-
-/***** Never trust users - validate input *****/
+});
 
 module.exports = router;

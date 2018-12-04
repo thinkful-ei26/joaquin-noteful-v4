@@ -3,9 +3,13 @@
 const express = require('express');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
+const passport = require('passport');
+const localStrategy = require('./passport/local');
+
 
 const { PORT, MONGODB_URI } = require('./config');
 
+const authRouter = require('./routes/auth');//handles POST to login
 const notesRouter = require('./routes/notes');
 const foldersRouter = require('./routes/folders');
 const tagsRouter = require('./routes/tags');
@@ -13,6 +17,9 @@ const usersRouter = require('./routes/users');
 
 // Create an Express application
 const app = express();
+console.log(localStrategy);
+//make passport thing use localStrategy thing?????
+passport.use(localStrategy);
 
 // Log all requests. Skip logging during
 app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'common', {
@@ -30,6 +37,7 @@ app.use('/api/notes', notesRouter);
 app.use('/api/folders', foldersRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/login', authRouter); //or '/api'?
 
 // Custom 404 Not Found route handler
 app.use((req, res, next) => {
@@ -52,6 +60,7 @@ app.use((err, req, res, next) => {
 // Listen for incoming connections
 if (require.main === module) {
   // Connect to DB and Listen for incoming connections
+  console.log(MONGODB_URI);
   mongoose.connect(MONGODB_URI, { useNewUrlParser:true })
     .catch(err => {
       console.error(err);
