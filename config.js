@@ -1,4 +1,6 @@
 'use strict';
+require('dotenv').config();
+// require('jsonwebtoken').config();
 
 module.exports = {
   PORT: process.env.PORT || 8080,
