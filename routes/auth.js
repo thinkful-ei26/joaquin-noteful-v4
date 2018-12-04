@@ -9,6 +9,8 @@ const { JWT_SECRET, JWT_EXPIRY } = require('../config');
 
 
 const passport = require('passport');
+// Protect endpoints using JWT Strategy
+// router.use('/', passport.authenticate('jwt', { session: false, failWithError: true }));
 
 function createAuthToken(user) {
   return jwt.sign({ user }, JWT_SECRET, {
@@ -17,6 +19,7 @@ function createAuthToken(user) {
   });
 }
 // const { Strategy: LocalStrategy } = require('passport-local');
+
 
 const options = { session: false, failWithError: true }; //throws error, instead of sending text response, then middlewear formats error as json response?/instead of sending a response, it'll throw an error if theres a auth error - text body vs json body
 

@@ -10,7 +10,8 @@ const store = (function () {
     currentNote: {},
     currentQuery: {
       searchTerm: '',
-    }
+    },
+    authToken: ''
   };
 
 }());
