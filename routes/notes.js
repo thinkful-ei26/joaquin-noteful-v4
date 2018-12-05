@@ -6,16 +6,23 @@ const mongoose = require('mongoose');
 const Note = require('../models/note');
 
 const router = express.Router();
+const passport = require('passport');
+
+router.use(
+  '/',
+  passport.authenticate('jwt', { session: false, failWithError: true })
+);
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
   const { searchTerm, folderId, tagId } = req.query;
+  const userId = req.user.id;
 
-  let filter = {};
+  let filter = { userId };
 
   if (searchTerm) {
     const re = new RegExp(searchTerm, 'i');
-    filter.$or = [{ 'title': re }, { 'content': re }];
+    filter.$or = [{ title: re }, { content: re }];
   }
 
   if (folderId) {
@@ -40,6 +47,7 @@ router.get('/', (req, res, next) => {
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id; // linking notes to users.
 
   /***** Never trust users - validate input *****/
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -48,7 +56,8 @@ router.get('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note.findById(id)
+  // Note.findById(id)
+  Note.findOne({ _id: id, userId })
     .populate('tags')
     .then(result => {
       if (result) {
@@ -65,6 +74,7 @@ router.get('/:id', (req, res, next) => {
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
   const { title, content, folderId, tags } = req.body;
+  const userId = req.user.id;
 
   /***** Never trust users - validate input *****/
   if (!title) {
@@ -80,7 +90,7 @@ router.post('/', (req, res, next) => {
   }
 
   if (tags) {
-    const badIds = tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
+    const badIds = tags.filter(tag => !mongoose.Types.ObjectId.isValid(tag));
     if (badIds.length) {
       const err = new Error('The `tags` array contains an invalid `id`');
       err.status = 400;
@@ -95,7 +105,10 @@ router.post('/', (req, res, next) => {
 
   Note.create(newNote)
     .then(result => {
-      res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+      res
+        .location(`${req.originalUrl}/${result.id}`)
+        .status(201)
+        .json(result);
     })
     .catch(err => {
       next(err);
@@ -105,6 +118,7 @@ router.post('/', (req, res, next) => {
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
 
   const toUpdate = {};
   const updateableFields = ['title', 'content', 'folderId', 'tags'];
@@ -128,14 +142,19 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  if (toUpdate.folderId && !mongoose.Types.ObjectId.isValid(toUpdate.folderId)) {
+  if (
+    toUpdate.folderId &&
+    !mongoose.Types.ObjectId.isValid(toUpdate.folderId)
+  ) {
     const err = new Error('The `folderId` is not valid');
     err.status = 400;
     return next(err);
   }
 
   if (toUpdate.tags) {
-    const badIds = toUpdate.tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
+    const badIds = toUpdate.tags.filter(
+      tag => !mongoose.Types.ObjectId.isValid(tag)
+    );
     if (badIds.length) {
       const err = new Error('The `tags` array contains an invalid `id`');
       err.status = 400;
@@ -145,7 +164,7 @@ router.put('/:id', (req, res, next) => {
 
   if (toUpdate.folderId === '') {
     delete toUpdate.folderId;
-    toUpdate.$unset = {folderId : 1};
+    toUpdate.$unset = { folderId: 1 };
   }
 
   Note.findByIdAndUpdate(id, toUpdate, { new: true })
@@ -164,6 +183,7 @@ router.put('/:id', (req, res, next) => {
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
 
   /***** Never trust users - validate input *****/
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -172,7 +192,7 @@ router.delete('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note.findByIdAndRemove(id)
+  Note.findOneAndRemove({ _id: id, userId })
     .then(() => {
       res.sendStatus(204);
     })
