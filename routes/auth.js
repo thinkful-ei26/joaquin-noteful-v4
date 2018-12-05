@@ -18,6 +18,12 @@ function createAuthToken(user) {
     expiresIn: JWT_EXPIRY
   });
 }
+const jwtAuth = passport.authenticate('jwt', { session: false, failWithError: true });
+
+router.post('/refresh', jwtAuth, (req, res) => {
+  const authToken = createAuthToken(req.user);
+  res.json({ authToken });
+});
 // const { Strategy: LocalStrategy } = require('passport-local');
 
 

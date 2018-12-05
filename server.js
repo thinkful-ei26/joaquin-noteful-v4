@@ -22,7 +22,7 @@ const app = express();
 passport.use(localStrategy);
 passport.use(jwtStrategy);
 
-// Log all requests. Skip logging during
+// Log all requests. Skip logging duringapp.use('/api/users', usersRouter);
 app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'common', {
   skip: () => process.env.NODE_ENV === 'test'
 }));
@@ -69,6 +69,7 @@ if (require.main === module) {
 
   app.listen(PORT, function () {
     console.info(`Server listening on ${this.address().port}`);
+    console.log(this.address());
   }).on('error', err => {
     console.error(err);
   });

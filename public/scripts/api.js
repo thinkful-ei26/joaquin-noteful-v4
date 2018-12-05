@@ -52,7 +52,6 @@ const api = (function() {
     search,
     details,
     update,
-    remove,
-    headers: { Authorization: `Bearer ${store.authToken}` }
+    remove
   };
 })();
