@@ -3,56 +3,30 @@
 const express = require('express');
 const mongoose = require('mongoose');
 
+const Folder = require('../models/folder');
 const Note = require('../models/note');
 
 const router = express.Router();
 const passport = require('passport');
 
-/* ========== GET/READ ALL ITEMS ========== */
-
-<<<<<<< HEAD
-/* ========== GET/READ ALL ITEMS ========== */
-=======
 // Protect endpoints using JWT Strategy
 router.use('/', passport.authenticate('jwt', { session: false, failWithError: true }));
->>>>>>> feature/JWT
+
+/* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
 
-  const { searchTerm, folderId, tagId } = req.query;
-
-  let filter = {};
-
-  if (searchTerm) {
-    filter.title = { $regex: searchTerm, $options: 'i' };
-
-    // Mini-Challenge: Search both `title` and `content`
-    // const re = new RegExp(searchTerm, 'i');
-    // filter.$or = [{ 'title': re }, { 'content': re }];
-  }
-
-  if (folderId) {
-    filter.folderId = folderId;
-  }
-
-  if (tagId) {
-    filter.tags = tagId;
-  }
-
-  Note.find(filter)
-    .populate('tags')
-    .sort({ updatedAt: 'desc' })
+  Folder.find()
+    .sort('name')
     .then(results => {
       res.json(results);
     })
     .catch(err => {
       next(err);
     });
-
 });
 
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
-
   const { id } = req.params;
 
   /***** Never trust users - validate input *****/
@@ -62,8 +36,7 @@ router.get('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note.findById(id)
-    .populate('tags')
+  Folder.findById(id)
     .then(result => {
       if (result) {
         res.json(result);
@@ -74,55 +47,38 @@ router.get('/:id', (req, res, next) => {
     .catch(err => {
       next(err);
     });
-
 });
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
+  const { name } = req.body;
 
-  const { title, content, folderId, tags = [] } = req.body;
+  const newFolder = { name };
 
   /***** Never trust users - validate input *****/
-  if (!title) {
-    const err = new Error('Missing `title` in request body');
+  if (!name) {
+    const err = new Error('Missing `name` in request body');
     err.status = 400;
     return next(err);
   }
 
-  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
-    const err = new Error('The `folderId` is not valid');
-    err.status = 400;
-    return next(err);
-  }
-
-  tags.forEach((tag) => {
-    if (!mongoose.Types.ObjectId.isValid(tag)) {
-      const err = new Error('The `id` is not valid');
-      err.status = 400;
-      return next(err);
-    }
-  });
-
-  const newNote = { title, content, folderId, tags };
-  if (newNote.folderId === '') {
-    delete newNote.folderId;
-  }
-
-  Note.create(newNote)
+  Folder.create(newFolder)
     .then(result => {
       res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
     })
     .catch(err => {
+      if (err.code === 11000) {
+        err = new Error('Folder name already exists');
+        err.status = 400;
+      }
       next(err);
     });
-
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
-
   const { id } = req.params;
-  const { title, content, folderId, tags = [] } = req.body;
+  const { name } = req.body;
 
   /***** Never trust users - validate input *****/
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -131,29 +87,15 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
-    const err = new Error('The `folderId` is not valid');
+  if (!name) {
+    const err = new Error('Missing `name` in request body');
     err.status = 400;
     return next(err);
   }
 
-  if (tags) {
-    const badIds = tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
-    if (badIds.length) {
-      const err = new Error('The `tags` array contains an invalid `id`');
-      err.status = 400;
-      return next(err);
-    }
-  }
+  const updateFolder = { name };
 
-  const updateNote = { title, content, folderId };
-
-  if (folderId === '') {
-    delete updateNote.folderId;
-    updateNote.$unset = { folderId: '' };
-  }
-
-  Note.findByIdAndUpdate(id, updateNote, { new: true })
+  Folder.findByIdAndUpdate(id, updateFolder, { new: true })
     .then(result => {
       if (result) {
         res.json(result);
@@ -162,14 +104,16 @@ router.put('/:id', (req, res, next) => {
       }
     })
     .catch(err => {
+      if (err.code === 11000) {
+        err = new Error('Folder name already exists');
+        err.status = 400;
+      }
       next(err);
     });
-
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
-
   const { id } = req.params;
 
   /***** Never trust users - validate input *****/
@@ -179,14 +123,23 @@ router.delete('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note.findByIdAndRemove(id)
+  // ON DELETE SET NULL equivalent
+  const folderRemovePromise = Folder.findByIdAndRemove(id);
+  // ON DELETE CASCADE equivalent
+  // const noteRemovePromise = Note.deleteMany({ folderId: id });
+
+  const noteRemovePromise = Note.updateMany(
+    { folderId: id },
+    { $unset: { folderId: '' } }
+  );
+
+  Promise.all([folderRemovePromise, noteRemovePromise])
     .then(() => {
       res.sendStatus(204);
     })
     .catch(err => {
       next(err);
     });
-
 });
 
 module.exports = router;

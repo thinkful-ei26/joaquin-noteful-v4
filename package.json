@@ -9,11 +9,26 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+<<<<<<< HEAD
     "test": "cross-env NODE_ENV=test mocha --file test/server.js"
   },
   "dependencies": {
     "express": "^4.16.3",
     "morgan": "^1.9.1"
+=======
+    "test": "cross-env NODE_ENV=test mocha",
+    "dev": "nodemon server.js",
+    "seed": "node ./utils/seed-database.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.16.3",
+    "local": "^0.3.3",
+    "mongoose": "^5.2.8",
+    "morgan": "^1.9.1",
+    "passport": "^0.4.0",
+    "passport-local": "^1.0.0"
+>>>>>>> feature/JWT
   },
   "devDependencies": {
     "chai": "^4.1.2",

@@ -2,15 +2,27 @@
 
 const express = require('express');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
+const passport = require('passport');
+const localStrategy = require('./passport/local');
+const jwtStrategy = require('./passport/jwt');
 
-const { PORT } = require('./config');
 
+const { PORT, MONGODB_URI } = require('./config');
+
+const authRouter = require('./routes/auth');//handles POST to login
 const notesRouter = require('./routes/notes');
+const foldersRouter = require('./routes/folders');
+const tagsRouter = require('./routes/tags');
+const usersRouter = require('./routes/users');
 
 // Create an Express application
 const app = express();
+//make passport thing use localStrategy thing?????
+passport.use(localStrategy);
+passport.use(jwtStrategy);
 
-// Log all requests. Skip logging during
+// Log all requests. Skip logging duringapp.use('/api/users', usersRouter);
 app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'common', {
   skip: () => process.env.NODE_ENV === 'test'
 }));
@@ -23,6 +35,10 @@ app.use(express.json());
 
 // Mount routers
 app.use('/api/notes', notesRouter);
+app.use('/api/folders', foldersRouter);
+app.use('/api/tags', tagsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/login', authRouter); //or '/api'?
 
 // Custom 404 Not Found route handler
 app.use((req, res, next) => {
@@ -44,8 +60,19 @@ app.use((err, req, res, next) => {
 
 // Listen for incoming connections
 if (require.main === module) {
+<<<<<<< HEAD
+=======
+  // Connect to DB and Listen for incoming connections
+  console.log(MONGODB_URI);
+  mongoose.connect(MONGODB_URI, { useNewUrlParser:true })
+    .catch(err => {
+      console.error(err);
+    });
+
+>>>>>>> feature/JWT
   app.listen(PORT, function () {
     console.info(`Server listening on ${this.address().port}`);
+    console.log(this.address());
   }).on('error', err => {
     console.error(err);
   });
