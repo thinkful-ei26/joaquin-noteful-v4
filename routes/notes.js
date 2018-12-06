@@ -122,7 +122,6 @@ router.put('/:id', (req, res, next) => {
 
   const toUpdate = {};
   const updateableFields = ['title', 'content', 'folderId', 'tags'];
-  console.log('req.user is ', req.user);
 
   let filter = { userId };
 
@@ -133,7 +132,7 @@ router.put('/:id', (req, res, next) => {
   });
 
   /***** Never trust users - validate input *****/
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+  if (!mongoose.Types.ObjectId.isValid(noteId)) {
     const err = new Error('The `id` is not valid');
     err.status = 400;
     return next(err);
