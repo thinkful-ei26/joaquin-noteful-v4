@@ -82,6 +82,11 @@ router.post('/', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
+const newNote = { title, content, folderId, tags, userId};
+if(newNote.folderId === ''){
+  delete newNote.folderId
+}
+
 
   if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
     const err = new Error('The `folderId` is not valid');
@@ -98,7 +103,7 @@ router.post('/', (req, res, next) => {
     }
   }
 
-  const newNote = { title, content, folderId, tags };
+  const newNote = { title, content, folderId, tags, userId };
   if (newNote.folderId === '') {
     delete newNote.folderId;
   }
@@ -116,12 +121,16 @@ router.post('/', (req, res, next) => {
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
+
 router.put('/:id', (req, res, next) => {
-  const { id } = req.params;
+  const  noteId  = req.params.id;
   const userId = req.user.id;
 
   const toUpdate = {};
   const updateableFields = ['title', 'content', 'folderId', 'tags'];
+  console.log('req.user is ', req.user);
+
+  let filter = { userId };
 
   updateableFields.forEach(field => {
     if (field in req.body) {
@@ -166,8 +175,7 @@ router.put('/:id', (req, res, next) => {
     delete toUpdate.folderId;
     toUpdate.$unset = { folderId: 1 };
   }
-
-  Note.findByIdAndUpdate(id, toUpdate, { new: true })
+  Note.findOneAndUpdate({userId, _id:noteId}, toUpdate, { new: true })
     .then(result => {
       if (result) {
         res.json(result);
@@ -178,6 +186,7 @@ router.put('/:id', (req, res, next) => {
     .catch(err => {
       next(err);
     });
+
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
