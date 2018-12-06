@@ -82,27 +82,61 @@ router.post('/', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
+
   const newNote = { title, content, folderId, tags, userId };
-  if (newNote.folderId === '') {
+
+  /* Isolate tag and folder updates by user. 
+  Strategy: repeat the validation for folders and tags separately and add in a userId validation  */
+  const validateFolderIsUsers = function(folderId, userId) {
+    if (!mongoose.Types.objectId.isValid(folderId)) {
+      const e = new Error('Invalid folder Id');
+      e.status(400);
+      return Promise.reject(e);
+    }
+  };
+
+  const validateTagIsUsers = function(tags, userId) {
+    // Check that tags are presented in an array.
+    if (!Array.isArray(tags)) {
+      const e = new Error('Tags need to be in an array');
+      e.status(400);
+      return Promise.reject(e);
+    }
+    // Check that all array elements are valid (loop through the array with a mongoose validation check). 
+    const badTag = tags.filter((tag) => mongoose.Types.objectId.isValid(tag));
+    if(badTag.length){
+      const e = new Error('There is an invalid tag in the array');
+      e.status(400);
+      return Promise.reject(e);
+    }
+    // if (!mongoose.Types.objectId.isValid(tags)) {
+    //   const error = new Error('Invalid tag ');
+    //   error.status(400);
+    //   return Promise.reject(error);
+    // }
+  };
+
+  /***************THIS CODE BLOCK PRECEDES THE ISOLATION OF TAG-FOLDER POST-PUT FUNCTIONS*****
+  if (newNote.folderId === '') { // if no folderId is provided delete the field.
     delete newNote.folderId;
   }
 
-  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+  if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) { // if there is a folderId but it is not valid, throw an error
     const err = new Error('The `folderId` is not valid');
     err.status = 400;
     return next(err);
   }
 
-  if (tags) {
+  if (tags) { // if tag id's are included, validate them.
     const badIds = tags.filter(tag => !mongoose.Types.ObjectId.isValid(tag));
     if (badIds.length) {
       const err = new Error('The `tags` array contains an invalid `id`');
       err.status = 400;
       return next(err);
     }
-  }
+  } */
 
-  Note.create(newNote)
+  Note.create(newNote) //
     .then(result => {
       res
         .location(`${req.originalUrl}/${result.id}`)
