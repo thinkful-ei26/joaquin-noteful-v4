@@ -4,6 +4,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const Note = require('../models/note');
+const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 
 const router = express.Router();
 const passport = require('passport');
@@ -12,6 +14,57 @@ router.use(
   '/',
   passport.authenticate('jwt', { session: false, failWithError: true })
 );
+
+const validateTagsForUser = function(tags, userId) {
+  if (tags === undefined) {
+    // This allows for no tags, withour error
+    return Promise.resolve();
+  }
+  // Check that tags are presented in an array.
+  if (!Array.isArray(tags)) {
+    const e = new Error('Tags need to be in an array');
+    e.status = 400;
+    return Promise.reject(e);
+  }
+  // Check that all array elements are valid (loop through the array with a mongoose validation check).
+  const badTag = tags.filter(tag => mongoose.Types.objectId.isValid(tag));
+  if (badTag.length) {
+    const e = new Error('There is an invalid tag in the array');
+    e.status = 400;
+    return Promise.reject(e);
+  }
+
+  return Tag.find({ $and: [{ _id: { $in: tags }, userId }] }) //loop the tag array and return a new array of all two way matches with tag and user id.
+    .then(result => {
+      if (tags.length !== result.length) {
+        const e = new Error('The tags array contains an invalid tag');
+        e.status = 400;
+        return Promise.reject();
+      }
+    });
+};
+const validateFoldersForUser = function(folderId, userId) {
+  // console.log('inputs to folder validation', folderId, userId);
+  if (folderId === undefined) {
+    // this says that no folder designation is ok per schema
+    // .resolve() i think acts like next() and just moves along the chain. Not sure why we have this code block.
+    return Promise.resolve();
+  }
+  if (!mongoose.Types.ObjectId.isValid(folderId)) {
+    const e = new Error('Invalid folder Id');
+    e.status = 400;
+    return Promise.reject(e);
+  }
+  return Folder.countDocuments({ _id: folderId, userId }) // count all folders with two-way match on current user and folder Id.
+    .then(count => {
+      // console.log('count here--', count);
+      if (count === 0) {
+        const e = new Error('The folder id is invalid');
+        e.status = 400;
+        return Promise.reject(e);
+      }
+    });
+};
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/', (req, res, next) => {
@@ -75,6 +128,7 @@ router.get('/:id', (req, res, next) => {
 router.post('/', (req, res, next) => {
   const { title, content, folderId, tags } = req.body;
   const userId = req.user.id;
+  // console.log('tags', tags);
 
   /***** Never trust users - validate input *****/
   if (!title) {
@@ -84,39 +138,29 @@ router.post('/', (req, res, next) => {
   }
 
   const newNote = { title, content, folderId, tags, userId };
+  // console.log('newNote.tags', newNote.tags);
 
-  /* Isolate tag and folder updates by user. 
-  Strategy: repeat the validation for folders and tags separately and add in a userId validation  */
-  const validateFolderIsUsers = function(folderId, userId) {
-    if (!mongoose.Types.objectId.isValid(folderId)) {
-      const e = new Error('Invalid folder Id');
-      e.status(400);
-      return Promise.reject(e);
-    }
-  };
+  if (newNote.folderId === '') {
+    delete newNote.folderId;
+  }
+  Promise.all([
+    validateFoldersForUser(newNote.folderId, userId),
+    validateTagsForUser(newNote.tags, userId)
+  ])
+    .then(() => Note.create(newNote))
+    .then(result => {
+      res
+        .location(`${req.originalUrl}/${result.id}`)
+        .status(201)
+        .json(result);
+    })
+    .catch(e => {
+      console.error(e);
+      next(e);
+    });
+});
 
-  const validateTagIsUsers = function(tags, userId) {
-    // Check that tags are presented in an array.
-    if (!Array.isArray(tags)) {
-      const e = new Error('Tags need to be in an array');
-      e.status(400);
-      return Promise.reject(e);
-    }
-    // Check that all array elements are valid (loop through the array with a mongoose validation check). 
-    const badTag = tags.filter((tag) => mongoose.Types.objectId.isValid(tag));
-    if(badTag.length){
-      const e = new Error('There is an invalid tag in the array');
-      e.status(400);
-      return Promise.reject(e);
-    }
-    // if (!mongoose.Types.objectId.isValid(tags)) {
-    //   const error = new Error('Invalid tag ');
-    //   error.status(400);
-    //   return Promise.reject(error);
-    // }
-  };
-
-  /***************THIS CODE BLOCK PRECEDES THE ISOLATION OF TAG-FOLDER POST-PUT FUNCTIONS*****
+/***************THIS CODE BLOCK PRECEDES THE ISOLATION OF TAG-FOLDER POST-PUT FUNCTIONS*****
   if (newNote.folderId === '') { // if no folderId is provided delete the field.
     delete newNote.folderId;
   }
@@ -136,17 +180,16 @@ router.post('/', (req, res, next) => {
     }
   } */
 
-  Note.create(newNote) //
-    .then(result => {
-      res
-        .location(`${req.originalUrl}/${result.id}`)
-        .status(201)
-        .json(result);
-    })
-    .catch(err => {
-      next(err);
-    });
-});
+// Note.create(newNote) //
+//   .then(result => {
+//     res
+//       .location(`${req.originalUrl}/${result.id}`)
+//       .status(201)
+//       .json(result);
+//   })
+//   .catch(err => {
+//     next(err);
+//   });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 
