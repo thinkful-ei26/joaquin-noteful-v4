@@ -27,7 +27,7 @@ const validateTagsForUser = function(tags, userId) {
     return Promise.reject(e);
   }
   // Check that all array elements are valid (loop through the array with a mongoose validation check).
-  const badTag = tags.filter(tag => mongoose.Types.objectId.isValid(tag));
+  const badTag = tags.filter(tag => !mongoose.Types.ObjectId.isValid(tag));
   if (badTag.length) {
     const e = new Error('There is an invalid tag in the array');
     e.status = 400;
