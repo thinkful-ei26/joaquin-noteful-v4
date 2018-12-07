@@ -163,7 +163,7 @@ describe('Noteful API - Folders', function() {
         });
     });
 
-    it('should respond with a 400 for an invalid id', function() {
+    it.only('should respond with a 400 for an invalid id', function() {
       return chai
         .request(app)
         .get('/api/folders/NOT-A-VALID-ID')
