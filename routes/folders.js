@@ -67,7 +67,6 @@ router.post('/', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
-
   Folder.create(newFolder)
     .then(result => {
       res
@@ -83,6 +82,31 @@ router.post('/', (req, res, next) => {
       next(err);
     });
 });
+// Folder.find({ userId, name: name })
+//   .then(folders => {
+//     if (folders.length > 0) {
+//       // duplicate folder name
+//       const e = new Error('Duplicate folder name');
+//       // throw e;
+//     } else {
+//       return Folder.create(newFolder);
+//     }
+//   })
+
+//     .then(result => {
+//       res
+//         .location(`${req.originalUrl}/${result.id}`)
+//         .status(201)
+//         .json(result);
+//     })
+//     .catch(err => {
+//       // if (err.code === 11000) {
+//       //   err = new Error('Folder name already exists');
+//       //   err.status = 400;
+//       // }
+//       next(err);
+//     });
+// });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
@@ -103,9 +127,10 @@ router.put('/:id', (req, res, next) => {
     return next(err);
   }
 
-  const updateFolder = { name, userId };
-
-  Folder.findByIdAndUpdate(id, updateFolder, { new: true })
+  const updateFolder = { name };
+  Folder.findOneAndUpdate({ _id: id, userId: userId }, updateFolder, {
+    new: true
+  })
     .then(result => {
       if (result) {
         res.json(result);
@@ -113,6 +138,14 @@ router.put('/:id', (req, res, next) => {
         next();
       }
     })
+    // Folder.findByIdAndUpdate(id, updateFolder, { new: true })
+    //   .then(result => {
+    //     if (result) {
+    //       res.json(result);
+    //     } else {
+    //       next();
+    //     }
+    //   })
     .catch(err => {
       if (err.code === 11000) {
         err = new Error('Folder name already exists');
@@ -135,12 +168,12 @@ router.delete('/:id', (req, res, next) => {
   }
 
   // ON DELETE SET NULL equivalent
-  const folderRemovePromise = Folder.findByIdAndRemove({_id:id, userId});
+  const folderRemovePromise = Folder.findOneAndRemove({ _id: id, userId });
   // ON DELETE CASCADE equivalent
   // const noteRemovePromise = Note.deleteMany({ folderId: id });
 
   const noteRemovePromise = Note.updateMany(
-    { folderId: id },
+    { folderId: id, userId },
     { $unset: { folderId: '' } }
   );
 

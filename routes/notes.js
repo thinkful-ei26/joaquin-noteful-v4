@@ -29,7 +29,7 @@ const validateTagsForUser = function(tags, userId) {
   // Check that all array elements are valid (loop through the array with a mongoose validation check).
   const badTag = tags.filter(tag => !mongoose.Types.ObjectId.isValid(tag));
   if (badTag.length) {
-    const e = new Error('There is an invalid tag in the array');
+    const e = new Error('The `tags` array contains an invalid `id`');
     e.status = 400;
     return Promise.reject(e);
   }
@@ -51,7 +51,7 @@ const validateFoldersForUser = function(folderId, userId) {
     return Promise.resolve();
   }
   if (!mongoose.Types.ObjectId.isValid(folderId)) {
-    const e = new Error('Invalid folder Id');
+    const e = new Error('The `folderId` is not valid');
     e.status = 400;
     return Promise.reject(e);
   }
